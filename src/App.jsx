@@ -207,7 +207,7 @@ function EventDetail({ token, event, onBack }) {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`${API}/organiser/events/${event.id}/visitor-upload`, {
+      const res = await fetch(`/api/upload?event_id=${event.id}`, {
         method: "POST",
         headers: { "x-fingoh-auth": `Bearer ${token}` },
         body: formData,
