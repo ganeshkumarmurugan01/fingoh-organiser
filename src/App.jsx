@@ -155,6 +155,251 @@ function CreateEventModal({ token, onClose, onCreated }) {
   );
 }
 
+const VISITOR_COLS = [
+  { key:"first_name",          label:"First Name" },
+  { key:"last_name",           label:"Last Name" },
+  { key:"email",               label:"Email" },
+  { key:"company",             label:"Company" },
+  { key:"job_title",           label:"Job Title" },
+  { key:"country",             label:"Country" },
+  { key:"city",                label:"City" },
+  { key:"phone",               label:"Phone" },
+  { key:"linkedin_url",        label:"LinkedIn" },
+  { key:"categories_interest", label:"Categories" },
+  { key:"primary_reason",      label:"Reason" },
+  { key:"company_size",        label:"Co. Size" },
+  { key:"incumbent_vendor",    label:"Vendor" },
+];
+
+const EMPTY_ROW = Object.fromEntries(VISITOR_COLS.map(c => [c.key, ""]));
+
+function VisitorDataTab({ token, event, API }) {
+  const [rows, setRows]         = useState([]);
+  const [total, setTotal]       = useState(0);
+  const [page, setPage]         = useState(1);
+  const [loading, setLoading]   = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [showAdd, setShowAdd]   = useState(false);
+  const [addForm, setAddForm]   = useState({...EMPTY_ROW});
+  const [saving, setSaving]     = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [msg, setMsg]           = useState("");
+  const PAGE_SIZE = 50;
+
+  const load = useCallback(async (p = page) => {
+    setLoading(true);
+    try {
+      const data = await apiCall(
+        `/organiser/events/${event.id}/visitor-rows?page=${p}&page_size=${PAGE_SIZE}`,
+        token
+      );
+      setRows(data.rows);
+      setTotal(data.total);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  }, [event.id, token, page]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setMsg("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/upload?event_id=${event.id}`, {
+        method: "POST",
+        headers: { "x-fingoh-auth": `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Upload failed");
+      setMsg(`✓ ${data.row_count} visitors uploaded`);
+      setPage(1); load(1);
+    } catch(e) { setMsg("✗ " + e.message); }
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  const handleAdd = async () => {
+    setSaving(true); setMsg("");
+    try {
+      await apiCall(`/organiser/events/${event.id}/visitor-rows`, token, {
+        method: "POST", body: JSON.stringify(addForm),
+      });
+      setMsg("✓ Row added");
+      setAddForm({...EMPTY_ROW});
+      setShowAdd(false);
+      load();
+    } catch(e) { setMsg("✗ " + e.message); }
+    setSaving(false);
+  };
+
+  const handleEdit = async (rowId) => {
+    setSaving(true); setMsg("");
+    try {
+      await apiCall(`/organiser/visitor-rows/${rowId}`, token, {
+        method: "PATCH", body: JSON.stringify(editForm),
+      });
+      setEditingId(null);
+      load();
+    } catch(e) { setMsg("✗ " + e.message); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (rowId) => {
+    if (!window.confirm("Delete this visitor row?")) return;
+    try {
+      await apiCall(`/organiser/visitor-rows/${rowId}`, token, { method: "DELETE" });
+      setMsg("✓ Row deleted");
+      load();
+    } catch(e) { setMsg("✗ " + e.message); }
+  };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <p style={{ fontSize:13, color:C.muted, margin:0 }}>{total} visitor(s) total</p>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={() => { setShowAdd(true); setMsg(""); }}
+            style={{ padding:"8px 16px", background:C.white, color:C.navy, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+            + Add Row
+          </button>
+          <label style={{ padding:"8px 16px", background:C.navy, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F }}>
+            {uploading ? "Uploading…" : "↑ Upload CSV"}
+            <input type="file" accept=".csv" onChange={handleUpload} style={{ display:"none" }} disabled={uploading}/>
+          </label>
+        </div>
+      </div>
+
+      {msg && (
+        <div style={{ padding:"10px 14px", background:msg.startsWith("✓")?C.ltgrn:C.ltred, borderRadius:8, fontSize:13, marginBottom:16, color:msg.startsWith("✓")?C.green:C.red }}>
+          {msg}
+        </div>
+      )}
+
+      {/* Add Row Form */}
+      {showAdd && (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginBottom:16 }}>
+          <h3 style={{ fontSize:14, fontWeight:700, color:C.navy, margin:"0 0 14px" }}>Add Visitor</h3>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:14 }}>
+            {VISITOR_COLS.map(col => (
+              <div key={col.key}>
+                <label style={lS}>{col.label}</label>
+                <input value={addForm[col.key]||""} onChange={e=>setAddForm(p=>({...p,[col.key]:e.target.value}))}
+                  style={{ ...iS, fontSize:12, padding:"7px 10px" }}/>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={() => setShowAdd(false)}
+              style={{ padding:"8px 16px", background:C.white, color:C.muted, border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:"pointer", fontFamily:F }}>
+              Cancel
+            </button>
+            <button onClick={handleAdd} disabled={saving}
+              style={{ padding:"8px 18px", background:saving?"#CBD5E1":C.blue, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:saving?"not-allowed":"pointer", fontFamily:F }}>
+              {saving ? "Saving…" : "Add Visitor"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div style={{ padding:40, textAlign:"center", color:C.muted }}>Loading…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:40, textAlign:"center", color:C.muted, fontSize:13 }}>
+          No visitor data yet — upload a CSV or add rows manually
+        </div>
+      ) : (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <thead>
+              <tr style={{ background:"#F8FAFC" }}>
+                {VISITOR_COLS.map(col => (
+                  <th key={col.key} style={{ padding:"8px 12px", textAlign:"left", fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase", borderBottom:`1px solid ${C.border}`, whiteSpace:"nowrap" }}>
+                    {col.label}
+                  </th>
+                ))}
+                <th style={{ padding:"8px 12px", borderBottom:`1px solid ${C.border}`, width:120 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => {
+                const d = row.raw_data || {};
+                const isEditing = editingId === row.id;
+                return (
+                  <tr key={row.id} style={{ borderBottom: i < rows.length-1 ? `1px solid ${C.border}` : "none", background: isEditing ? "#FAFBFF" : "white" }}>
+                    {VISITOR_COLS.map(col => (
+                      <td key={col.key} style={{ padding:"8px 12px", maxWidth:160 }}>
+                        {isEditing ? (
+                          <input value={editForm[col.key]||""} onChange={e=>setEditForm(p=>({...p,[col.key]:e.target.value}))}
+                            style={{ width:"100%", padding:"4px 6px", border:`1px solid ${C.border}`, borderRadius:4, fontSize:11, fontFamily:F, outline:"none" }}/>
+                        ) : (
+                          <span style={{ color:C.dark, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"block", maxWidth:150 }}>
+                            {d[col.key] || "—"}
+                          </span>
+                        )}
+                      </td>
+                    ))}
+                    <td style={{ padding:"8px 12px", whiteSpace:"nowrap" }}>
+                      {isEditing ? (
+                        <div style={{ display:"flex", gap:4 }}>
+                          <button onClick={() => handleEdit(row.id)} disabled={saving}
+                            style={{ padding:"3px 8px", background:C.blue, color:C.white, border:"none", borderRadius:4, fontSize:10, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                            {saving ? "…" : "Save"}
+                          </button>
+                          <button onClick={() => setEditingId(null)}
+                            style={{ padding:"3px 8px", background:C.white, color:C.muted, border:`1px solid ${C.border}`, borderRadius:4, fontSize:10, cursor:"pointer", fontFamily:F }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display:"flex", gap:4 }}>
+                          <button onClick={() => { setEditingId(row.id); setEditForm({...EMPTY_ROW, ...d}); }}
+                            style={{ padding:"3px 8px", background:C.ltblue, color:C.blue, border:"1px solid #BFDBFE", borderRadius:4, fontSize:10, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                            Edit
+                          </button>
+                          <button onClick={() => handleDelete(row.id)}
+                            style={{ padding:"3px 8px", background:C.ltred, color:C.red, border:"1px solid #FECACA", borderRadius:4, fontSize:10, fontWeight:600, cursor:"pointer", fontFamily:F }}>
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 16px", borderTop:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:12, color:C.muted }}>Page {page} of {totalPages} · {total} rows</span>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={() => { setPage(p=>p-1); load(page-1); }} disabled={page===1}
+                  style={{ padding:"5px 12px", background:C.white, color:page===1?C.muted:C.navy, border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor:page===1?"not-allowed":"pointer", fontFamily:F }}>
+                  ← Prev
+                </button>
+                <button onClick={() => { setPage(p=>p+1); load(page+1); }} disabled={page===totalPages}
+                  style={{ padding:"5px 12px", background:C.white, color:page===totalPages?C.muted:C.navy, border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor:page===totalPages?"not-allowed":"pointer", fontFamily:F }}>
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Event Detail ──────────────────────────────────────────────────────────────
 function EventDetail({ token, event, onBack }) {
   const [exhibitors, setExhibitors]   = useState([]);
@@ -367,6 +612,8 @@ function EventDetail({ token, event, onBack }) {
 
       {/* Visitor Data Tab */}
       {activeTab === "visitor-data" && (
+  <VisitorDataTab token={token} event={event} API={API} />
+)}
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
             <p style={{ fontSize:13, color:C.muted, margin:0 }}>{uploads.length} upload(s) · {uploads.reduce((a,u) => a + u.row_count, 0)} total rows</p>
