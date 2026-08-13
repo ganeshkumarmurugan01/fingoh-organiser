@@ -613,49 +613,6 @@ function EventDetail({ token, event, onBack }) {
       {/* Visitor Data Tab */}
       {activeTab === "visitor-data" && (
         <VisitorDataTab token={token} event={event} API={API} />
-)}
-        <div>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-            <p style={{ fontSize:13, color:C.muted, margin:0 }}>{uploads.length} upload(s) · {uploads.reduce((a,u) => a + u.row_count, 0)} total rows</p>
-            <label style={{ padding:"8px 18px", background:C.navy, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:F }}>
-              {uploading ? "Uploading…" : "↑ Upload CSV"}
-              <input type="file" accept=".csv" onChange={handleUpload} style={{ display:"none" }} disabled={uploading}/>
-            </label>
-          </div>
-
-          {uploadMsg && (
-            <div style={{ padding:"10px 14px", background:uploadMsg.startsWith("✓")?C.ltgrn:C.ltred, borderRadius:8, fontSize:13, marginBottom:16, color:uploadMsg.startsWith("✓")?C.green:C.red }}>
-              {uploadMsg}
-            </div>
-          )}
-
-          {loading ? (
-            <div style={{ padding:40, textAlign:"center", color:C.muted }}>Loading…</div>
-          ) : uploads.length === 0 ? (
-            <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:40, textAlign:"center", color:C.muted, fontSize:13 }}>
-              No visitor data uploaded yet — upload a CSV to get started
-            </div>
-          ) : (
-            <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
-              <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 80px", gap:0, padding:"9px 16px", background:"#F8FAFC", borderBottom:`1px solid ${C.border}` }}>
-                {["Filename","Rows","Uploaded",""].map(h => (
-                  <div key={h} style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>{h}</div>
-                ))}
-              </div>
-              {uploads.map((up, i) => (
-                <div key={up.id} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 80px", gap:0, padding:"12px 16px", alignItems:"center", borderBottom: i < uploads.length-1 ? `1px solid ${C.border}` : "none" }}>
-                  <div style={{ fontSize:13, fontWeight:500, color:C.dark }}>📄 {up.filename}</div>
-                  <div style={{ fontSize:13, color:C.dark }}>{up.row_count.toLocaleString()} rows</div>
-                  <div style={{ fontSize:12, color:C.muted }}>{new Date(up.uploaded_at).toLocaleDateString()}</div>
-                  <button onClick={() => handleDeleteUpload(up.id)}
-                    style={{ padding:"4px 10px", background:C.ltred, color:C.red, border:"1px solid #FECACA", borderRadius:6, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:F }}>
-                    Delete
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       )}
     </div>
   );
