@@ -612,7 +612,7 @@ function EventDetail({ token, event, onBack }) {
 
       {/* Visitor Data Tab */}
       {activeTab === "visitor-data" && (
-  <VisitorDataTab token={token} event={event} API={API} />
+        <VisitorDataTab token={token} event={event} API={API} />
 )}
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
