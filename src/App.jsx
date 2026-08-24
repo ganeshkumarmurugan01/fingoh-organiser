@@ -202,19 +202,15 @@ function VisitorDataTab({ token, event, API }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const loadIntel = useCallback(async () => {
-    if (intel) return; // already loaded
-    setIntelLoading(true);
-    try {
-      const d = await apiCall(`/organiser/events/${event.id}/intelligence`, token);
-      setIntel(d);
-    } catch(e) { console.error(e); }
-    setIntelLoading(false);
-  }, [event.id, token, intel]);
-
   useEffect(() => {
-    if (activeTab === "intelligence") loadIntel();
-  }, [activeTab, loadIntel]);
+    if (activeTab !== "intelligence") return;
+    if (intel) return;
+    setIntelLoading(true);
+    apiCall(`/organiser/events/${event.id}/intelligence`, token)
+      .then(d => setIntel(d))
+      .catch(e => console.error("Intel load failed:", e))
+      .finally(() => setIntelLoading(false));
+  }, [activeTab, event.id, token]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
