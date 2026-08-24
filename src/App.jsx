@@ -203,11 +203,11 @@ function VisitorDataTab({ token, event, API }) {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    console.log("Intel useEffect fired, activeTab=", activeTab, "intel=", intel);
     if (activeTab !== "intelligence") return;
-    if (intel) return;
     setIntelLoading(true);
     apiCall(`/organiser/events/${event.id}/intelligence`, token)
-      .then(d => setIntel(d))
+      .then(d => { console.log("Intel loaded:", d); setIntel(d); })
       .catch(e => console.error("Intel load failed:", e))
       .finally(() => setIntelLoading(false));
   }, [activeTab, event.id, token]);
