@@ -640,7 +640,8 @@ function EventDetail({ token, event, onBack }) {
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:24}}>
                 {[
                   {label:"Exhibitors",    val:intel.summary.total_exhibitors,             color:C.blue},
-                  {label:"Total Visitors",val:intel.summary.total_visitors,               color:C.navy},
+                  {label:"Visitor Pool",  val:intel.summary.organiser_visitor_pool ?? intel.summary.total_visitors, color:C.navy},
+                  {label:"Exhibitor Visitors",val:intel.summary.exhibitor_visitors ?? 0,    color:C.purple},
                   {label:"Avg IEI Score", val:intel.summary.avg_iei ?? "—",              color:"#D97706"},
                   {label:"Total Meetings",val:intel.summary.total_meetings,               color:C.green},
                   {label:"T1 Hot Leads",  val:intel.summary.tier_counts?.T1 ?? 0,        color:"#DC2626"},
