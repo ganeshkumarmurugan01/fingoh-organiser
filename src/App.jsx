@@ -202,6 +202,20 @@ function VisitorDataTab({ token, event, API }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const loadIntel = useCallback(async () => {
+    if (intel) return; // already loaded
+    setIntelLoading(true);
+    try {
+      const d = await apiCall(`/organiser/events/${event.id}/intelligence`, token);
+      setIntel(d);
+    } catch(e) { console.error(e); }
+    setIntelLoading(false);
+  }, [event.id, token, intel]);
+
+  useEffect(() => {
+    if (activeTab === "intelligence") loadIntel();
+  }, [activeTab, loadIntel]);
+
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -406,6 +420,8 @@ function EventDetail({ token, event, onBack }) {
   const [uploads, setUploads]         = useState([]);
   const [loading, setLoading]         = useState(true);
   const [activeTab, setActiveTab]     = useState("exhibitors");
+  const [intel, setIntel]             = useState(null);
+  const [intelLoading, setIntelLoading] = useState(false);
   const [showInvite, setShowInvite]   = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteAlloc, setInviteAlloc] = useState(500);
@@ -520,10 +536,10 @@ function EventDetail({ token, event, onBack }) {
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:24, borderBottom:`2px solid ${C.border}` }}>
-        {["exhibitors","visitor-data"].map(tab => (
+        {["exhibitors","visitor-data","intelligence"].map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             style={{ padding:"8px 18px", background:"none", border:"none", borderBottom:activeTab===tab?`2px solid ${C.blue}`:"2px solid transparent", color:activeTab===tab?C.blue:C.muted, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:F, marginBottom:-2, textTransform:"capitalize" }}>
-            {tab === "visitor-data" ? "Visitor Data" : "Exhibitors"}
+            {tab === "visitor-data" ? "Visitor Data" : tab === "intelligence" ? "⚡ Intelligence" : "Exhibitors"}
           </button>
         ))}
       </div>
@@ -613,6 +629,108 @@ function EventDetail({ token, event, onBack }) {
       {/* Visitor Data Tab */}
       {activeTab === "visitor-data" && (
         <VisitorDataTab token={token} event={event} API={API} />
+      )}
+
+      {/* ── Intelligence Tab ── */}
+      {activeTab === "intelligence" && (
+        <div>
+          {intelLoading ? (
+            <div style={{padding:60,textAlign:"center",color:C.muted}}>Loading intelligence data…</div>
+          ) : !intel ? (
+            <div style={{padding:60,textAlign:"center",color:C.muted}}>Failed to load intelligence data</div>
+          ) : (
+            <>
+              {/* Event Summary Strip */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:24}}>
+                {[
+                  {label:"Exhibitors",    val:intel.summary.total_exhibitors,             color:C.blue},
+                  {label:"Total Visitors",val:intel.summary.total_visitors,               color:C.navy},
+                  {label:"Avg IEI Score", val:intel.summary.avg_iei ?? "—",              color:"#D97706"},
+                  {label:"Total Meetings",val:intel.summary.total_meetings,               color:C.green},
+                  {label:"T1 Hot Leads",  val:intel.summary.tier_counts?.T1 ?? 0,        color:"#DC2626"},
+                ].map(({label,val,color}) => (
+                  <div key={label} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:12,padding:16,textAlign:"center"}}>
+                    <div style={{fontSize:24,fontWeight:800,color,marginBottom:4}}>{val}</div>
+                    <div style={{fontSize:11,color:C.muted,fontWeight:600}}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tier Distribution */}
+              {intel.summary.total_visitors > 0 && (
+                <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:12,padding:16,marginBottom:24}}>
+                  <p style={{fontSize:12,fontWeight:700,color:C.navy,margin:"0 0 10px"}}>IEI Tier Distribution</p>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    {[
+                      {tier:"T1",label:"Hot",color:"#DC2626",bg:"#FEE2E2"},
+                      {tier:"T2",label:"Warm",color:"#D97706",bg:"#FEF3C7"},
+                      {tier:"T3",label:"Cool",color:"#2563EB",bg:"#DBEAFE"},
+                      {tier:"T4",label:"Cold",color:"#64748B",bg:"#F1F5F9"},
+                    ].map(({tier,label,color,bg}) => {
+                      const count = intel.summary.tier_counts[tier] || 0;
+                      const pct = intel.summary.total_visitors > 0 ? Math.round((count/intel.summary.total_visitors)*100) : 0;
+                      return (
+                        <div key={tier} style={{flex:1,background:bg,borderRadius:8,padding:"10px 14px",textAlign:"center"}}>
+                          <div style={{fontSize:18,fontWeight:800,color}}>{count}</div>
+                          <div style={{fontSize:10,color,fontWeight:700}}>{tier} · {label}</div>
+                          <div style={{fontSize:10,color,opacity:0.7}}>{pct}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Per-Exhibitor Intelligence Table */}
+              <h3 style={{fontSize:13,fontWeight:700,color:C.navy,margin:"0 0 12px"}}>Exhibitor Intelligence</h3>
+              <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
+                {/* Header */}
+                <div style={{display:"grid",gridTemplateColumns:"2fr 80px 80px 80px 60px 60px 80px 100px",gap:0,padding:"9px 16px",background:"#F8FAFC",borderBottom:`1px solid ${C.border}`}}>
+                  {["Exhibitor","Setup","Visitors","Avg IEI","T1","Meetings","Status","Last Upload"].map(h => (
+                    <div key={h} style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase"}}>{h}</div>
+                  ))}
+                </div>
+                {intel.exhibitors.length === 0 ? (
+                  <div style={{padding:32,textAlign:"center",color:C.muted,fontSize:13}}>No exhibitors yet</div>
+                ) : intel.exhibitors.map((ex, i) => {
+                  const setupColor = ex.setup_pct == null ? C.muted : ex.setup_pct >= 50 ? "#16A34A" : ex.setup_pct >= 30 ? "#D97706" : "#DC2626";
+                  const statusBg = ex.status === "accepted" || ex.status === "active" ? "#F0FDF4" : "#FFF7ED";
+                  const statusFg = ex.status === "accepted" || ex.status === "active" ? "#16A34A" : "#C2410C";
+                  return (
+                    <div key={ex.link_id} style={{display:"grid",gridTemplateColumns:"2fr 80px 80px 80px 60px 60px 80px 100px",gap:0,padding:"12px 16px",alignItems:"center",borderBottom: i < intel.exhibitors.length-1 ? `1px solid ${C.border}` : "none"}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600,color:C.navy}}>{ex.company}</div>
+                        <div style={{fontSize:10,color:C.muted}}>{ex.invite_email}</div>
+                      </div>
+                      <div>
+                        {ex.setup_pct != null
+                          ? <span style={{fontSize:12,fontWeight:700,color:setupColor}}>{ex.setup_pct}%</span>
+                          : <span style={{fontSize:11,color:C.muted}}>—</span>
+                        }
+                      </div>
+                      <div style={{fontSize:13,fontWeight:600,color:C.navy}}>{ex.visitor_count || 0}</div>
+                      <div style={{fontSize:13,fontWeight:600,color:ex.avg_iei ? "#D97706" : C.muted}}>
+                        {ex.avg_iei ?? "—"}
+                      </div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#DC2626"}}>{ex.tier_counts?.T1 || 0}</div>
+                      <div style={{fontSize:13,color:C.navy}}>{ex.meeting_count || 0}</div>
+                      <div>
+                        <span style={{fontSize:10,padding:"3px 7px",borderRadius:99,background:statusBg,color:statusFg,fontWeight:700}}>
+                          {ex.status}
+                        </span>
+                      </div>
+                      <div style={{fontSize:11,color:C.muted}}>
+                        {ex.last_upload_at
+                          ? new Date(ex.last_upload_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})
+                          : "Never"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
