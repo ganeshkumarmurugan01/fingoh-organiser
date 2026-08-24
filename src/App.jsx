@@ -202,16 +202,6 @@ function VisitorDataTab({ token, event, API }) {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    console.log("Intel useEffect fired, activeTab=", activeTab, "intel=", intel);
-    if (activeTab !== "intelligence") return;
-    setIntelLoading(true);
-    apiCall(`/organiser/events/${event.id}/intelligence`, token)
-      .then(d => { console.log("Intel loaded:", d); setIntel(d); })
-      .catch(e => console.error("Intel load failed:", e))
-      .finally(() => setIntelLoading(false));
-  }, [activeTab, event.id, token]);
-
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -418,6 +408,16 @@ function EventDetail({ token, event, onBack }) {
   const [activeTab, setActiveTab]     = useState("exhibitors");
   const [intel, setIntel]             = useState(null);
   const [intelLoading, setIntelLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "intelligence") return;
+    if (intel) return;
+    setIntelLoading(true);
+    apiCall(`/organiser/events/${event.id}/intelligence`, token)
+      .then(d => { setIntel(d); })
+      .catch(e => console.error("Intel load failed:", e))
+      .finally(() => setIntelLoading(false));
+  }, [activeTab, event.id, token]);
   const [showInvite, setShowInvite]   = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteAlloc, setInviteAlloc] = useState(500);
